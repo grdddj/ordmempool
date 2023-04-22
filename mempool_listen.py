@@ -13,9 +13,16 @@ zmq_socket.setsockopt(zmq.SUBSCRIBE, zmq_topic)
 conn = rpc_connection()
 
 
-def yield_new_txs() -> Iterator[OrdinalTx]:
+def yield_new_raw_txs() -> Iterator[bytes]:
     while True:
         _topic, raw_tx_data, _seq_num = zmq_socket.recv_multipart()
+        yield raw_tx_data
+
+
+def yield_new_txs() -> Iterator[OrdinalTx]:
+    raw_txs_iterator = yield_new_raw_txs()
+    while True:
+        raw_tx_data = next(raw_txs_iterator)
         tx = OrdinalTx.from_raw_tx_data(raw_tx_data.hex(), conn)
         if tx is not None:
             yield tx

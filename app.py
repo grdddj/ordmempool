@@ -41,6 +41,7 @@ def get_client_ip(request: Request) -> str:
     return request.client.host
 
 
+# So we know which instance of the app is serving the request
 port = 0
 
 
@@ -68,12 +69,13 @@ async def check_for_new_images():
 
     while True:
         new_images = latest_images_list(newer_than=last_creation_time)
-        if new_images and connected_clients:
+        if new_images:
             last_creation_time = new_images[0][1]
-            logger.info(f"{port} - Sending new images - {len(new_images)}, {last_creation_time}")
-            result = add_json_data_to_images(new_images)
-            for client in connected_clients:
-                await client.send_json(result)
+            if connected_clients:
+                logger.info(f"{port} - Sending new images - {len(new_images)}, {last_creation_time}")
+                result = add_json_data_to_images(new_images)
+                for client in connected_clients:
+                    await client.send_json(result)
 
         await asyncio.sleep(1)
 
@@ -126,7 +128,8 @@ async def websocket_endpoint(websocket: WebSocket):
 
 
 @app.get("/api/latest-images")
-async def do_latest_images():
+async def do_latest_images(request: Request):
+    logger.info(f"{port} - Latest images - HOST: {get_client_ip(request)}")
     latest_images = latest_images_list(num=RESULT_NUM)
     result = add_json_data_to_images(latest_images)
 

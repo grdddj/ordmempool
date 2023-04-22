@@ -1,19 +1,34 @@
 from pathlib import Path
+import atexit
 
 import paramiko
 from scp import SCPClient
 
 from config import Config
 
+private_key = paramiko.RSAKey.from_private_key_file(Config.private_key_file)
+ssh = paramiko.SSHClient()
+ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+ssh.connect(
+    Config.hostname, port=Config.port, username=Config.username, pkey=private_key
+)
+scp_client = SCPClient(ssh.get_transport())
+
+
+def close_ssh() -> None:
+    print("closing ssh")
+    ssh.close()
+
+
+def close_scp() -> None:
+    print("closing scp")
+    scp_client.close()
+
 
 def send_files_to_server(*files: str | Path) -> None:
-    private_key = paramiko.RSAKey.from_private_key_file(Config.private_key_file)
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(Config.hostname, port=Config.port, username=Config.username, pkey=private_key)
+    for file in files:
+        scp_client.put(file, Config.server_dir)
 
-    with SCPClient(ssh.get_transport()) as scp:
-        for file in files:
-            scp.put(file, Config.server_dir)
 
-    ssh.close()
+atexit.register(close_scp)
+atexit.register(close_ssh)

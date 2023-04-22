@@ -6,3 +6,4 @@ mainnet.conf
 config.py
 restart*.sh
 status*.sh
+trial

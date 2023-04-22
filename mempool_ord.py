@@ -3,9 +3,11 @@ import logging
 import time
 from decimal import Decimal
 from pathlib import Path
+import sys
+import threading
 
 from common import InscriptionContent, OrdinalTx, RawProxy, rpc_connection
-from mempool_listen import yield_new_ordinals
+from mempool_listen import yield_new_txs
 from send_to_server import send_files_to_server
 
 
@@ -29,26 +31,14 @@ logger.addHandler(log_handler)
 data_dir = HERE / "mempool_data" / "static" / "pictures"
 
 
-def main_polling():
-    conn = rpc_connection()
-    mempool_txs_prev = set(conn.getrawmempool())
-    print("mempool_txs_prev", len(mempool_txs_prev))
-    for tx_id in mempool_txs_prev:
-        process_tx_id(tx_id, conn)
-
-    while True:
-        mempool_txs_current = set(conn.getrawmempool())
-        new_txs = mempool_txs_current - mempool_txs_prev
-        print("new_txs", len(new_txs))
-        for tx_id in new_txs:
-            process_tx_id(tx_id, conn)
-        mempool_txs_prev = mempool_txs_current
-        time.sleep(0.3)
-
-
 def main_listening():
     conn = rpc_connection()
-    for tx, inscription in yield_new_ordinals():
+    for index, tx in enumerate(yield_new_txs()):
+        if index % 100 == 0:
+            logger.info(f"index - {index} - {tx.tx_id}")
+        inscription = tx.get_inscription(conn)
+        if inscription is None:
+            continue
         while True:
             try:
                 process_ordinal(inscription, tx, conn)
@@ -61,16 +51,6 @@ def main_listening():
                 conn = rpc_connection()
 
 
-def process_tx_id(tx_id: str, conn: RawProxy) -> None:
-    tx = OrdinalTx.from_tx_id(tx_id, conn)
-    if tx is None:
-        return
-    inscription = tx.get_inscription(conn)
-    if inscription is None:
-        return
-    process_ordinal(inscription, tx, conn)
-
-
 def process_ordinal(
     inscription: InscriptionContent, tx: OrdinalTx, conn: RawProxy
 ) -> None:
@@ -79,6 +59,8 @@ def process_ordinal(
     logger.info(f"tx - {tx}")
     logger.info(f"inscription - {inscription}")
     file_suffix = inscription.content_type.split("/")[-1]
+    if file_suffix == "svg+xml":
+        file_suffix = "svg"
     file_name = f"{tx.tx_id}.{file_suffix}"
     data_file = data_dir / file_name
     json_file = data_dir / f"{file_name}.json"
@@ -94,11 +76,23 @@ def process_ordinal(
     )
     with open(json_file, "w") as f:
         json.dump(data, f, indent=1, cls=DecimalEncoder)
-    send_files_to_server(data_file, json_file)
+    # Sleeping a little bit so the file is really written (sometimes was empty)
+    time.sleep(0.05)
+    # Using another thread to upload, not to waste time in processing thread
+    upload_thread = threading.Thread(target=send_files_to_server, args=(data_file, json_file))
+    upload_thread.start()
     logger.info(f"Files sent - {data_file}")
 
 
 if __name__ == "__main__":
-    # main_polling()
     logger.info("Starting main_listening")
-    main_listening()
+    while True:
+        try:
+            main_listening()
+        except KeyboardInterrupt:
+            logger.info("Stopping...")
+            sys.exit(0)
+        except Exception as e:
+            logger.exception(f"Exception {e}")
+            logger.info("Recovering from error...")
+            continue

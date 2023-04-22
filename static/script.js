@@ -1,4 +1,4 @@
-const WS_URL = `wss://${window.location.host}/ws`
+const WS_URL = `wss://ordmempool.space/ws`
 const WS_RECONNECT_INTERVAL_MS = 5000;
 const MAX_RESULTS = 100;
 let RESULTS = [];
@@ -24,7 +24,6 @@ function updateGlobalResults(newResults) {
             index === self.findIndex((t) => t.creation_time === obj.creation_time && t.image === obj.image)
     );
     RESULTS = RESULTS.slice(0, MAX_RESULTS);
-    updateImages();
 }
 
 function updateImages() {
@@ -110,4 +109,5 @@ function setupWebSocket() {
 window.addEventListener('DOMContentLoaded', () => {
     fetchLatestImages();
     setupWebSocket();
+    // setInterval(fetchLatestImages, 5000);
 });
