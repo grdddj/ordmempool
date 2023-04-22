@@ -3,14 +3,15 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
+import logging
+from operator import itemgetter
+from pathlib import Path
+
 from fastapi import FastAPI, Request, WebSocket  # type: ignore
 from fastapi.responses import HTMLResponse, JSONResponse  # type: ignore
 from fastapi.staticfiles import StaticFiles  # type: ignore
-from pathlib import Path
-from operator import itemgetter
-import json
-import logging
-import asyncio
 
 HERE = Path(__file__).parent
 
@@ -30,6 +31,7 @@ pictures_path = Path("static/pictures")
 connected_clients = set()
 
 RESULT_NUM = 20
+
 
 def get_request_port(request: Request) -> int:
     return request.scope["server"][1]
@@ -72,7 +74,9 @@ async def check_for_new_images():
         if new_images:
             last_creation_time = new_images[0][1]
             if connected_clients:
-                logger.info(f"{port} - Sending new images - {len(new_images)}, {last_creation_time}")
+                logger.info(
+                    f"{port} - Sending new images - {len(new_images)}, {last_creation_time}"
+                )
                 result = add_json_data_to_images(new_images)
                 for client in connected_clients:
                     await client.send_json(result)
@@ -80,13 +84,15 @@ async def check_for_new_images():
         await asyncio.sleep(1)
 
 
-def latest_images_list(num: int | None = None, newer_than: float | None = None) -> list[tuple[str, float]]:
+def latest_images_list(
+    num: int | None = None, newer_than: float | None = None
+) -> list[tuple[str, float]]:
     if num is None and newer_than is None:
         raise ValueError("Either num or newer_than must be set")
 
     image_files = []
 
-    for item in pictures_path.glob('*'):
+    for item in pictures_path.glob("*"):
         if item.is_file() and not item.name.endswith(".json"):
             image_files.append((item.name, item.stat().st_mtime))
 
@@ -116,7 +122,9 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     connected_clients.add(websocket)
     logger.info(f"{port} - New client connected - HOST: {get_host_ip(websocket)}")
-    logger.info(f"{port} - connected_clients {len(connected_clients)} - {get_connected_ips()}")
+    logger.info(
+        f"{port} - connected_clients {len(connected_clients)} - {get_connected_ips()}"
+    )
     try:
         while True:
             await websocket.receive_text()
@@ -124,7 +132,9 @@ async def websocket_endpoint(websocket: WebSocket):
     finally:
         connected_clients.remove(websocket)
         logger.info(f"{port} - Client disconnected - HOST: {get_host_ip(websocket)}")
-        logger.info(f"{port} - connected_clients {len(connected_clients)} - {get_connected_ips()}")
+        logger.info(
+            f"{port} - connected_clients {len(connected_clients)} - {get_connected_ips()}"
+        )
 
 
 @app.get("/api/latest-images")

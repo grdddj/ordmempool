@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Self
-import logging
 
 from bitcoin.rpc import JSONRPCError, RawProxy
 
