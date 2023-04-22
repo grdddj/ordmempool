@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>Latest mempool ordinals</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta
+        description="Real-time view of image ordinals as soon as they appear in the BTC mempool.">
+    <meta keywords="Bitcoin mempool ordinals inscriptions">
+    <meta author="grdddj - https://github.com/grdddj">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.15.3/css/all.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            /* max-width: 1200px; */
+            margin: 0 auto;
+            padding: 20px;
+        }
+    
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .center {
+            text-align: center;
+        }
+    
+        #images-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-gap: 20px;
+            justify-items: center;
+        }
+    
+        .image-card {
+            width: 100%;
+            max-width: 200px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            border: 5px solid black;
+        }
+
+        .image-card:hover {
+            box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
+            transform: translateY(-5px);
+        }
+        
+        img {
+            /* width: 100%; */
+            /* height: auto; */
+            /* max-height: 200px; */
+            width: 200px;
+            height: 200px;
+            object-fit: cover;
+            border: 5px solid black;
+        }
+            
+        .image-info {
+            /* padding: 10px; */
+            font-size: 14px;
+        }
+
+        footer {
+            font-family: 'Anuphan';
+            background-color: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .social-icons {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .social-icons a {
+            display: inline-block;
+            margin: 0 10px;
+            color: #333;
+            transition: color 0.3s ease;
+        }
+
+        .social-icons a:hover {
+             color: #1da1f2;
+        }
+
+        .social-icons i {
+            font-size: 24px;
+        }
+    </style>
+    <script>
+        const MAX_RESULTS = 100;
+        let RESULTS = [];
+
+        function shortenString(str, length) {
+            const firstN = str.substring(0, length);
+            const lastN = str.substring(str.length - length);
+            return `${firstN}...${lastN}`;
+        }
+
+        async function fetchLatestImages() {
+            const response = await fetch('/api/latest-images');
+            const results = await response.json();
+            updateGlobalResults(results);
+            updateImages();
+        }
+
+        function updateGlobalResults(newResults) {
+            RESULTS = RESULTS.concat(newResults);
+            RESULTS.sort((a, b) => b.creation_time - a.creation_time);
+            RESULTS = RESULTS.filter(
+                (obj, index, self) =>
+                    index === self.findIndex((t) => t.creation_time === obj.creation_time && t.image === obj.image)
+            );
+            RESULTS = RESULTS.slice(0, MAX_RESULTS);
+            updateImages();
+        }
+            
+        function updateImages() {
+            const container = document.querySelector('#images-container');
+            container.innerHTML = '';
+
+            RESULTS.forEach(result => {
+                const imagePath = result.image;
+                const data = result.data;
+                const card = document.createElement('div');
+                card.classList.add('image-card');
+
+                const img = document.createElement('img');
+                img.src = `/static/pictures/${imagePath}`;
+                
+                let short_tx_id = '';
+                let mempool_space_link = '';
+                let ordinals_com_link = '';
+                if (data.tx_id) {
+                    short_tx_id = shortenString(data.tx_id, 4);
+                    mempool_space_link = `https://mempool.space/tx/${data.tx_id}`;
+                    ordinals_com_link = `https://ordinals.com/inscription/${data.tx_id}i0`;
+                }
+
+                let feeRate = ''
+                if (data.fee_rate) {
+                    let feeRetaFixed2 = data.fee_rate.toFixed(2);
+                    feeRate = `${feeRetaFixed2} sat/vB`;
+                }
+
+                let publishedLocalTime = '';
+                if (data.timestamp) {
+                    const timestampInMs = data.timestamp * 1000;
+                    const date = new Date(timestampInMs);
+                    publishedLocalTime = date.toLocaleTimeString([], { hour12: false });
+                }
+
+                const info = document.createElement('div');
+                info.classList.add('image-info');
+                info.innerHTML = `
+                    <p><strong>TX ID:</strong> <a href="${mempool_space_link}" target="_blank">${short_tx_id}</a></p>
+                    <p><strong>Time:</strong> ${publishedLocalTime}</p>
+                    <p><strong>Content Length:</strong> ${data.content_length}</p>
+                    <p><strong>Content type:</strong> ${data.content_type}</p>
+                    <p><strong>Fee rate:</strong> ${feeRate}</p>
+                    <p><a href="${ordinals_com_link}" target="_blank">Future ordinals.com link</a></p>
+                `;
+
+                card.appendChild(img);
+                card.appendChild(info);
+                container.appendChild(card);
+            });
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            fetchLatestImages();
+
+            const socket = new WebSocket(`ws://${window.location.host}/ws`);
+
+            socket.addEventListener('open', (event) => {
+                console.log('WebSocket connection opened:', event);
+            });
+
+            socket.addEventListener('message', (event) => {
+                const results = JSON.parse(event.data);
+                updateGlobalResults(results);
+                updateImages();
+            });
+
+            socket.addEventListener('close', (event) => {
+                console.log('WebSocket connection closed:', event);
+            });
+
+            socket.addEventListener('error', (event) => {
+                console.log('WebSocket error:', event);
+            });
+        });
+    </script>
+</head>
+
+<body>
+    <h1>Latest ordinals in mempool</h1>
+    <p class="center">New pictures appear automatically, no need for page refresh.</p>
+    <div id="images-container"></div>
+    <footer>
+        <div class="social-icons">
+            Created by grdddj
+            <a href="https://github.com/grdddj" target="_blank">
+                <i class="fab fa-github"></i>
+            </a>
+            <a href="https://twitter.com/grdddj" target="_blank">
+                <i class="fab fa-twitter"></i>
+            </a>
+        </div>
+        <p>
+            <span>Also check out</span>
+            <a href="https://ordsimilarity.com" target="_blank"> OrdSimilarity </a>
+            <span>and</span>
+            <a href="https://btcstatts.com" target="_blank"> BtcStatts </a>
+        </p>
+        <p>
+            Disclaimer: We take no responsibility for the content in the inscriptions.
+        </p>
+    </footer>
+
+</body>
+
+</html>
