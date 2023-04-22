@@ -18,7 +18,7 @@ log_file_path = HERE / "app.log"
 logger = logging.getLogger(__file__)
 logger.setLevel(logging.INFO)
 log_handler = logging.FileHandler(log_file_path)
-log_formatter = logging.Formatter("%(asctime)s %(message)s")
+log_formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
 log_handler.setFormatter(log_formatter)
 logger.addHandler(log_handler)
 
@@ -31,6 +31,9 @@ connected_clients = set()
 
 RESULT_NUM = 20
 
+def get_request_port(request: Request) -> int:
+    return request.scope["server"][1]
+
 
 def get_client_ip(request: Request) -> str:
     if request.client is None:
@@ -38,9 +41,15 @@ def get_client_ip(request: Request) -> str:
     return request.client.host
 
 
+port = 0
+
+
 @app.get("/", response_class=HTMLResponse)
 async def read_index(request: Request):
-    logger.info(f"index.html - HOST: {get_client_ip(request)}")
+    global port
+    if port == 0:
+        port = get_request_port(request)
+    logger.info(f"{port} - index.html - HOST: {get_client_ip(request)}")
     index_html = Path("templates/index.html").read_text()
     return index_html
 
@@ -59,9 +68,9 @@ async def check_for_new_images():
 
     while True:
         new_images = latest_images_list(newer_than=last_creation_time)
-        if new_images:
+        if new_images and connected_clients:
             last_creation_time = new_images[0][1]
-            logger.info(f"Sending new images - {len(new_images)}, {last_creation_time}")
+            logger.info(f"{port} - Sending new images - {len(new_images)}, {last_creation_time}")
             result = add_json_data_to_images(new_images)
             for client in connected_clients:
                 await client.send_json(result)
@@ -92,7 +101,7 @@ def get_host_ip(websocket: WebSocket) -> str:
     try:
         return websocket.client[0]  # type: ignore
     except Exception as e:
-        logger.error(f"Exception get_host_ip - {websocket} - {e}")
+        logger.error(f"{port} - Exception get_host_ip - {websocket} - {e}")
         return "unknown"
 
 
@@ -104,16 +113,16 @@ def get_connected_ips() -> list[str]:
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     connected_clients.add(websocket)
-    logger.info(f"New client connected - HOST: {get_host_ip(websocket)}")
-    logger.info(f"connected_clients {len(connected_clients)} - {get_connected_ips()}")
+    logger.info(f"{port} - New client connected - HOST: {get_host_ip(websocket)}")
+    logger.info(f"{port} - connected_clients {len(connected_clients)} - {get_connected_ips()}")
     try:
         while True:
             await websocket.receive_text()
             await websocket.send_json({"message": "Hello World"})
     finally:
         connected_clients.remove(websocket)
-        logger.info(f"Client disconnected - HOST: {get_host_ip(websocket)}")
-        logger.info(f"connected_clients {len(connected_clients)} - {get_connected_ips()}")
+        logger.info(f"{port} - Client disconnected - HOST: {get_host_ip(websocket)}")
+        logger.info(f"{port} - connected_clients {len(connected_clients)} - {get_connected_ips()}")
 
 
 @app.get("/api/latest-images")
@@ -132,7 +141,7 @@ def add_json_data_to_images(images_paths: list[tuple[str, float]]) -> list[dict]
             try:
                 json_data = json.loads(json_file.read_text())
             except json.decoder.JSONDecodeError as e:
-                logger.error(f"JSONDecodeError - {image_name} - {e}")
+                logger.error(f"{port} - JSONDecodeError - {image_name} - {e}")
                 json_data = {}
             image_data.append(json_data)
     images_and_data = list(zip(images_paths, image_data))

@@ -1,0 +1,81 @@
+body {
+    font-family: Arial, sans-serif;
+    /* max-width: 1200px; */
+    margin: 0 auto;
+    padding: 20px;
+}
+
+h1 {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.center {
+    text-align: center;
+}
+
+#images-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-gap: 20px;
+    justify-items: center;
+}
+
+.image-card {
+    width: 100%;
+    max-width: 200px;
+    text-align: center;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    border: 5px solid black;
+}
+
+.image-card:hover {
+    box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(-5px);
+}
+
+img {
+    /* width: 100%; */
+    /* height: auto; */
+    /* max-height: 200px; */
+    width: 200px;
+    height: 200px;
+    object-fit: cover;
+    border: 5px solid black;
+}
+
+.image-info {
+    /* padding: 10px; */
+    font-size: 14px;
+}
+
+footer {
+    font-family: 'Anuphan';
+    background-color: #f8f9fa;
+    padding: 20px;
+    text-align: center;
+}
+
+.social-icons {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.social-icons a {
+    display: inline-block;
+    margin: 0 10px;
+    color: #333;
+    transition: color 0.3s ease;
+}
+
+.social-icons a:hover {
+    color: #1da1f2;
+}
+
+.social-icons i {
+    font-size: 24px;
+}

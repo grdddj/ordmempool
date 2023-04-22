@@ -1,4 +1,8 @@
 __pycache__
-static
+static/pictures
 *.log
 *.out
+mainnet.conf
+config.py
+restart*.sh
+status*.sh
