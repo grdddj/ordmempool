@@ -34,7 +34,6 @@ function prependNewImages(results) {
 }
 
 function createCardFromResult(result) {
-    console.log("creating card", result)
     const imagePath = result.image;
     const data = result.data;
     const card = document.createElement('div');

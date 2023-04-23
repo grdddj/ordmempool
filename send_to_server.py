@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import atexit
 from pathlib import Path
 
@@ -34,3 +32,9 @@ def send_files_to_server(*files: str | Path) -> None:
 
 atexit.register(close_scp)
 atexit.register(close_ssh)
+
+if __name__ == "__main__":
+    HERE = Path(__file__).parent
+    file1 = HERE / "mempool_data/static/pictures/1234.png"
+    file2 = HERE / "mempool_data/static/pictures/1234.png.json"
+    send_files_to_server(file1, file2)

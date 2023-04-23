@@ -1,33 +1,52 @@
-from __future__ import annotations
-
 import sys
 from typing import Iterator
+import logging
+from pathlib import Path
 
 import zmq
 
 from common import InscriptionContent, OrdinalTx, rpc_connection
 
+HERE = Path(__file__).parent
+
 zmq_context = zmq.Context()
 zmq_socket = zmq_context.socket(zmq.SUB)
-zmq_topic = b"rawtx"
-zmq_socket.connect("tcp://127.0.0.1:28332")
+# zmq_topic = b"rawtx"
+# zmq_socket.connect("tcp://127.0.0.1:28332")
+zmq_topic = b"sequence"
+zmq_socket.connect("tcp://127.0.0.1:28333")
 zmq_socket.setsockopt(zmq.SUBSCRIBE, zmq_topic)
 conn = rpc_connection()
 
+log_file_path = HERE / "mempool_listen.log"
+logger = logging.getLogger(__file__)
+logger.setLevel(logging.INFO)
+log_handler = logging.FileHandler(log_file_path)
+log_formatter = logging.Formatter("%(asctime)s %(message)s")
+log_handler.setFormatter(log_formatter)
+logger.addHandler(log_handler)
 
-def yield_new_raw_txs() -> Iterator[bytes]:
+
+def yield_new_tx_ids() -> Iterator[str]:
     while True:
-        _topic, raw_tx_data, _seq_num = zmq_socket.recv_multipart()
-        yield raw_tx_data
+        _topic, data, _seq_num = zmq_socket.recv_multipart()
+        if len(data) == 41:
+            tx_id = data[:32].hex()
+            added_or_deleted = chr(data[32])  # "A" or "R"
+            logger.info(f"{tx_id} {added_or_deleted}")
+            if added_or_deleted == "A":
+                yield tx_id
 
 
 def yield_new_txs() -> Iterator[OrdinalTx]:
-    raw_txs_iterator = yield_new_raw_txs()
+    new_tx_ids_iterator = yield_new_tx_ids()
     while True:
-        raw_tx_data = next(raw_txs_iterator)
-        tx = OrdinalTx.from_raw_tx_data(raw_tx_data.hex(), conn)
+        tx_id = next(new_tx_ids_iterator)
+        tx = OrdinalTx.from_tx_id(tx_id, conn)
         if tx is not None:
             yield tx
+        else:
+            logger.warning(f"WARNING: tx is None. tx_id: {tx_id}")
 
 
 def yield_new_ordinals() -> Iterator[tuple[OrdinalTx, InscriptionContent]]:

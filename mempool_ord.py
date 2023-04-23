@@ -8,7 +8,6 @@ from pathlib import Path
 
 from common import InscriptionContent, OrdinalTx, RawProxy, rpc_connection
 from mempool_listen import yield_new_txs
-from send_to_server import send_files_to_server
 
 
 class DecimalEncoder(json.JSONEncoder):
@@ -36,26 +35,39 @@ def main_listening():
     for index, tx in enumerate(yield_new_txs()):
         if index % 100 == 0:
             logger.info(f"index - {index} - {tx.tx_id}")
+        # if tx.block is not None:
+        #     logger.warning(f"Tx is already in block! {tx.tx_id}")
         inscription = tx.get_inscription(conn)
         if inscription is None:
             continue
-        while True:
-            try:
-                process_ordinal(inscription, tx, conn)
-                break
-            except Exception as e:
-                if "Broken pipe" in str(e):
-                    logger.error("Broken pipe")
-                else:
-                    logger.exception(f"Exception main_listening {e}")
-                conn = rpc_connection()
+        if not inscription.content_type.startswith("image"):
+            # logger.info(f"Ord is not an image - {tx.tx_id} - {inscription.content_type}")
+            continue
+        processing_thread = threading.Thread(
+            target=do_process_ordinal, args=(inscription, tx, conn)
+        )
+        logger.info(f"Starting processing_thread for {tx.tx_id}")
+        processing_thread.start()
+
+
+def do_process_ordinal(
+    inscription: InscriptionContent, tx: OrdinalTx, conn: RawProxy
+) -> None:
+    while True:
+        try:
+            process_ordinal(inscription, tx, conn)
+            break
+        except Exception as e:
+            if "Broken pipe" in str(e):
+                logger.error("Broken pipe")
+            else:
+                logger.exception(f"Exception main_listening {e}")
+            conn = rpc_connection()
 
 
 def process_ordinal(
     inscription: InscriptionContent, tx: OrdinalTx, conn: RawProxy
 ) -> None:
-    if not inscription.content_type.startswith("image"):
-        return
     logger.info(f"tx - {tx}")
     logger.info(f"inscription - {inscription}")
     file_suffix = inscription.content_type.split("/")[-1]
@@ -64,8 +76,9 @@ def process_ordinal(
     file_name = f"{tx.tx_id}.{file_suffix}"
     data_file = data_dir / file_name
     json_file = data_dir / f"{file_name}.json"
-    with open(data_file, "wb") as f:
-        f.write(inscription.payload)
+    if not data_file.exists() or data_file.stat().st_size == 0:
+        with open(data_file, "wb") as f:
+            f.write(inscription.payload)
     data = tx.to_dict_without_witness(conn)
     data["content_type"] = inscription.content_type
     data["content_hash"] = inscription.content_hash
@@ -74,16 +87,10 @@ def process_ordinal(
     data["datetime"] = time.strftime(
         "%Y-%m-%d %H:%M:%S UTC", time.gmtime(int(time.time()))
     )
-    with open(json_file, "w") as f:
-        json.dump(data, f, indent=1, cls=DecimalEncoder)
-    # Sleeping a little bit so the file is really written (sometimes was empty)
-    time.sleep(0.05)
-    # Using another thread to upload, not to waste time in processing thread
-    upload_thread = threading.Thread(
-        target=send_files_to_server, args=(data_file, json_file)
-    )
-    upload_thread.start()
-    logger.info(f"Files sent - {data_file}")
+    if not json_file.exists() or json_file.stat().st_size == 0:
+        with open(json_file, "w") as f:
+            json.dump(data, f, indent=1, cls=DecimalEncoder)
+    logger.info(f"Files saved - {data_file}")
 
 
 if __name__ == "__main__":
