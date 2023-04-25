@@ -1,4 +1,4 @@
-const WS_URL = `wss://ordmempool.space/ws`
+const WS_URL = 'wss://ordmempool.space/ws'
 const WS_RECONNECT_INTERVAL_MS = 5000;
 
 function shortenString(str, length) {
@@ -38,6 +38,9 @@ function createCardFromResult(result) {
     const data = result.data;
     const card = document.createElement('div');
     card.classList.add('image-card');
+    card.classList.add('not-mined-color');
+    // connecting the card with tx_id
+    card.setAttribute('tx_id', data.tx_id);
 
     const img = document.createElement('img');
     img.src = `/static/pictures/${imagePath}`;
@@ -80,6 +83,23 @@ function createCardFromResult(result) {
     return card;
 }
 
+function markTxAsDeleted(tx_id) {
+    const container = document.querySelector('#images-container');
+    for (const card of container.children) {
+        const cardId = card.getAttribute('tx_id');
+        if (cardId === tx_id) {
+            const deletedInfo = document.createElement('div');
+            deletedInfo.innerHTML = `
+                <p style="background-color: red;"><strong>Already mined!</strong></p>            
+            `;
+            card.classList.remove('not-mined-color');
+            card.classList.add('mined-color');
+            card.appendChild(deletedInfo);
+            break;
+        }
+    }
+}
+
 
 function setupWebSocket() {
     const ws = new WebSocket(WS_URL);
@@ -91,7 +111,13 @@ function setupWebSocket() {
     ws.addEventListener('message', (event) => {
         const results = JSON.parse(event.data);
         console.log('WebSocket message received:', results);
-        prependNewImages(results);
+        if (results.type === 'new_tx') {
+            prependNewImages(results.payload);
+        } else if (results.type === 'tx_deleted') {
+            markTxAsDeleted(results.payload);
+        } else {
+            console.error('Unknown WebSocket message type:', results.type);
+        }
     });
 
     ws.addEventListener('error', (event) => {

@@ -32,6 +32,14 @@ h1 {
     border: 5px solid black;
 }
 
+.not-mined-color {
+    background-color: rgb(89, 240, 240);
+}
+
+.mined-color {
+    background-color: rgb(196, 65, 4);
+}
+
 .image-card:hover {
     box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
     transform: translateY(-5px);

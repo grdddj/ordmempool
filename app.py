@@ -76,6 +76,26 @@ class NewJsonFileHandler(FileSystemEventHandler):
             # need to call async function from sync function
             asyncio.run(send_new_result_to_clients(new_file_path))
 
+    def on_deleted(self, event):
+        if event.is_directory:
+            return
+        new_file_path = event.src_path
+        file_name, file_ext = os.path.splitext(os.path.basename(new_file_path))
+
+        if file_ext == ".json":
+            asyncio.run(send_deletions_to_clients(new_file_path))
+
+
+async def send_deletions_to_clients(json_file_path: str) -> None:
+    tx_id = Path(json_file_path).name.split(".")[0]
+    logger.info(f"Deletion - {tx_id}")
+    result = {
+        "type": "tx_deleted",
+        "payload": tx_id,
+    }
+    for client in connected_clients:
+        await client.send_json(result)
+
 
 async def send_new_result_to_clients(json_file_path: str) -> None:
     try:
@@ -86,6 +106,11 @@ async def send_new_result_to_clients(json_file_path: str) -> None:
         image = Path(json_file_path[: -len(".json")]).name
         # clients expect a list
         result = [{"image": image, "data": data, "creation_time": creation_time}]
+
+        result = {
+            "type": "new_tx",
+            "payload": result,
+        }
 
         for client in connected_clients:
             await client.send_json(result)
