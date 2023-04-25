@@ -29,7 +29,7 @@ logger.addHandler(log_handler)
 app = FastAPI()
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
-pictures_path = Path("static/pictures")
+PICTURES_PATH = Path("static/pictures")
 
 connected_clients = set()
 
@@ -48,6 +48,13 @@ def get_client_ip(request: Request) -> str:
 
 # So we know which instance of the app is serving the request
 port = 0
+
+
+def get_mempool_size() -> int:
+    size = 0
+    for _ in PICTURES_PATH.glob("*.json"):
+        size += 1
+    return size
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -107,10 +114,7 @@ async def send_new_result_to_clients(json_file_path: str) -> None:
         # clients expect a list
         result = [{"image": image, "data": data, "creation_time": creation_time}]
 
-        result = {
-            "type": "new_tx",
-            "payload": result,
-        }
+        result = {"type": "new_tx", "payload": result, "size": get_mempool_size()}
 
         for client in connected_clients:
             await client.send_json(result)
@@ -168,6 +172,8 @@ async def do_latest_images(request: Request):
         latest_images = latest_images_list(num=RESULT_NUM)
         result = add_json_data_to_images(latest_images)
 
+        result = {"type": "latest_images", "result": result, "size": get_mempool_size()}
+
         return JSONResponse(content=result)
     except Exception as e:
         logger.exception(f"{port} - Exception do_latest_images - {e}")
@@ -182,7 +188,7 @@ def latest_images_list(
 
     image_files = []
 
-    for item in pictures_path.glob("*"):
+    for item in PICTURES_PATH.glob("*"):
         if item.is_file() and not item.name.endswith(".json"):
             image_files.append((item.name, item.stat().st_mtime))
 
@@ -198,7 +204,7 @@ def latest_images_list(
 def add_json_data_to_images(images_paths: list[tuple[str, float]]) -> list[dict]:
     image_data = []
     for image_name, _creation_time in images_paths:
-        json_file = pictures_path / f"{image_name}.json"
+        json_file = PICTURES_PATH / f"{image_name}.json"
         if json_file.exists():
             try:
                 json_data = json.loads(json_file.read_text())

@@ -1,7 +1,7 @@
-import sys
-from typing import Iterator
 import logging
+import sys
 from pathlib import Path
+from typing import Iterator
 
 import zmq
 

@@ -1,7 +1,9 @@
 import sys
 import time
-from watchdog.observers.polling import PollingObserver
+
 from watchdog.events import FileSystemEventHandler
+from watchdog.observers.polling import PollingObserver
+
 
 class FileDeletionHandler(FileSystemEventHandler):
     def on_deleted(self, event):
@@ -10,11 +12,12 @@ class FileDeletionHandler(FileSystemEventHandler):
         else:
             print(f"File deleted: {event.src_path}. Triggering warning.")
 
+
 def main(directory_to_watch):
     event_handler = FileDeletionHandler()
     observer = PollingObserver()
     observer.schedule(event_handler, directory_to_watch, recursive=True)
-    
+
     print(f"Starting to watch '{directory_to_watch}' for file deletions.")
     observer.start()
 
@@ -25,6 +28,7 @@ def main(directory_to_watch):
         observer.stop()
 
     observer.join()
+
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:

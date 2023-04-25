@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from typing import Iterator
 import logging
-from pathlib import Path
 import time
+from pathlib import Path
+from typing import Iterator
 
 import zmq
 

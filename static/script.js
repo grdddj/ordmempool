@@ -10,7 +10,10 @@ function shortenString(str, length) {
 async function fetchInitialLatestImages() {
     const response = await fetch('/api/latest-images');
     const results = await response.json();
-    updateInitialLatestImages(results);
+    const size = results.size;
+    updateMempoolSize(size);
+    const imageResults = results.result;
+    updateInitialLatestImages(imageResults);
 }
 
 function updateInitialLatestImages(results) {
@@ -98,6 +101,11 @@ function markTxAsDeleted(tx_id) {
             break;
         }
     }
+}
+
+function updateMempoolSize(newSize) {
+    const overall = document.querySelector('#overall');
+    overall.innerHTML = `${newSize}`
 }
 
 

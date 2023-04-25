@@ -1,6 +1,6 @@
-from common import rpc_connection
-
 from pathlib import Path
+
+from common import rpc_connection
 
 HERE = Path(__file__).parent
 
