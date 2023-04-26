@@ -66,13 +66,14 @@ def check_all_minted_ordinals_from_mempool():
         while True:
             try:
                 all_mempool_ids = load_all_ords_in_mempool()
+                logger.info(f"Ords in mempool {len(all_mempool_ids)}")
                 deleted_ids = []
                 for mined_tx_id in conn.getblock(block_hash)["tx"]:
                     if mined_tx_id in all_mempool_ids:
                         delete_tx_id_from_mempool_dir(mined_tx_id)
                         deleted_ids.append(mined_tx_id)
-                if deleted_ids:
-                    logger.info(f"Deleted {len(deleted_ids)} ids: {deleted_ids}")
+                logger.info(f"Deleted {len(deleted_ids)} ids: {deleted_ids}")
+                break
             except Exception as e:
                 logger.exception(f"Error: {e}")
                 time.sleep(1)
