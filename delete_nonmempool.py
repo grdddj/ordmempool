@@ -4,7 +4,7 @@ from common import rpc_connection
 
 HERE = Path(__file__).parent
 
-PICS_DIR = HERE / "mempool_data" / "static" / "pictures"
+PICS_DIR = HERE / "static" / "pictures"
 
 
 def load_all_ords_in_mempool() -> set[str]:

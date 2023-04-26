@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 import os
 from operator import itemgetter
 from pathlib import Path
@@ -16,15 +15,12 @@ from fastapi.staticfiles import StaticFiles  # type: ignore
 from watchdog.events import FileSystemEventHandler  # type: ignore
 from watchdog.observers.polling import PollingObserver  # type: ignore
 
+from logger import get_logger
+
 HERE = Path(__file__).parent
 
 log_file_path = HERE / "app.log"
-logger = logging.getLogger(__file__)
-logger.setLevel(logging.INFO)
-log_handler = logging.FileHandler(log_file_path)
-log_formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
-log_handler.setFormatter(log_formatter)
-logger.addHandler(log_handler)
+logger = get_logger(__file__, log_file_path)
 
 app = FastAPI()
 
@@ -99,6 +95,7 @@ async def send_deletions_to_clients(json_file_path: str) -> None:
     result = {
         "type": "tx_deleted",
         "payload": tx_id,
+        "size": get_mempool_size(),
     }
     for client in connected_clients:
         await client.send_json(result)
@@ -114,7 +111,11 @@ async def send_new_result_to_clients(json_file_path: str) -> None:
         # clients expect a list
         result = [{"image": image, "data": data, "creation_time": creation_time}]
 
-        result = {"type": "new_tx", "payload": result, "size": get_mempool_size()}
+        result = {
+            "type": "new_tx",
+            "payload": result,
+            "size": get_mempool_size(),
+        }
 
         for client in connected_clients:
             await client.send_json(result)
@@ -172,7 +173,11 @@ async def do_latest_images(request: Request):
         latest_images = latest_images_list(num=RESULT_NUM)
         result = add_json_data_to_images(latest_images)
 
-        result = {"type": "latest_images", "result": result, "size": get_mempool_size()}
+        result = {
+            "type": "latest_images",
+            "result": result,
+            "size": get_mempool_size(),
+        }
 
         return JSONResponse(content=result)
     except Exception as e:

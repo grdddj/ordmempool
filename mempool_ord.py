@@ -1,5 +1,4 @@
 import json
-import logging
 import sys
 import threading
 import time
@@ -7,6 +6,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from common import InscriptionContent, OrdinalTx, RawProxy, rpc_connection
+from logger import get_logger
 from mempool_listen import yield_new_txs
 
 
@@ -20,14 +20,9 @@ class DecimalEncoder(json.JSONEncoder):
 HERE = Path(__file__).parent
 
 log_file_path = HERE / "mempool_ord.log"
-logger = logging.getLogger(__file__)
-logger.setLevel(logging.INFO)
-log_handler = logging.FileHandler(log_file_path)
-log_formatter = logging.Formatter("%(asctime)s %(message)s")
-log_handler.setFormatter(log_formatter)
-logger.addHandler(log_handler)
+logger = get_logger(__file__, log_file_path)
 
-data_dir = HERE / "mempool_data" / "static" / "pictures"
+data_dir = HERE / "static" / "pictures"
 
 
 def main_listening():
@@ -35,13 +30,10 @@ def main_listening():
     for index, tx in enumerate(yield_new_txs()):
         if index % 100 == 0:
             logger.info(f"index - {index} - {tx.tx_id}")
-        # if tx.block is not None:
-        #     logger.warning(f"Tx is already in block! {tx.tx_id}")
         inscription = tx.get_inscription(conn)
         if inscription is None:
             continue
         if not inscription.content_type.startswith("image"):
-            # logger.info(f"Ord is not an image - {tx.tx_id} - {inscription.content_type}")
             continue
         processing_thread = threading.Thread(
             target=do_process_ordinal, args=(inscription, tx, conn)
@@ -63,6 +55,7 @@ def do_process_ordinal(
             else:
                 logger.exception(f"Exception main_listening {e}")
             conn = rpc_connection()
+            time.sleep(0.5)
 
 
 def process_ordinal(

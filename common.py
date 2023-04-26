@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import logging
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
@@ -9,9 +8,14 @@ from typing import Self
 
 from bitcoin.rpc import JSONRPCError, RawProxy
 
+from logger import get_logger
+
 HERE = Path(__file__).parent
 
 BTC_SATOSHI = 100_000_000
+
+log_file_path = HERE / "common.log"
+logger = get_logger(__file__, log_file_path)
 
 
 def rpc_connection() -> RawProxy:
@@ -40,7 +44,7 @@ class BasicBlock:
         try:
             block = conn.getblock(block_hash)
         except JSONRPCError as e:
-            logging.error(f"Exception BasicBlock::from_block_hash  {block_hash} : {e}")
+            logger.error(f"Exception BasicBlock::from_block_hash  {block_hash} : {e}")
             return None
 
         return cls(
@@ -55,7 +59,7 @@ class BasicBlock:
             block_hash = conn.getblockhash(block_height)
             block = conn.getblock(block_hash)
         except JSONRPCError as e:
-            logging.error(
+            logger.error(
                 f"Exception BasicBlock::from_block_height  {block_height} : {e}"
             )
             return None
@@ -71,11 +75,11 @@ class BasicBlock:
             raw_tx = conn.getrawtransaction(tx_id, True)
             block_hash = raw_tx["blockhash"]
         except JSONRPCError as e:
-            logging.error(f"Exception BasicBlock::from_tx_id  {tx_id} : {e}")
+            logger.error(f"Exception BasicBlock::from_tx_id  {tx_id} : {e}")
             return None
-        except KeyError as e:
+        except KeyError:
             # There is no blockhash, so this is a mempool transaction
-            logging.error(f"Exception BasicBlock::from_tx_id  {tx_id} : {e}")
+            # logger.error(f"Exception BasicBlock::from_tx_id  {tx_id} : {e}")
             return None
         return cls.from_block_hash(block_hash, conn)
 
@@ -108,6 +112,7 @@ class Input:
 
     def value(self, conn: RawProxy) -> int:
         prev_tx = Tx.from_tx_id(self.tx_id, conn)
+        assert prev_tx is not None
         return prev_tx.vout[self.vout].value
 
 
@@ -128,7 +133,7 @@ class Output:
 
     @property
     def value(self) -> int:
-        return int(BTC_SATOSHI * self._d["value"])
+        return int(BTC_SATOSHI * self._d["value"])  # type: ignore
 
 
 @dataclass
@@ -145,7 +150,7 @@ class Tx:
         try:
             raw_tx = conn.getrawtransaction(tx_id)
         except JSONRPCError as e:
-            logging.error(f"Exception Tx::from_tx_id  {tx_id} : {e}")
+            logger.error(f"Exception Tx::from_tx_id  {tx_id} : {e}")
             return None
 
         return cls.from_raw_tx_data(raw_tx, conn)
@@ -155,7 +160,7 @@ class Tx:
         try:
             tx = conn.decoderawtransaction(raw_tx)
         except JSONRPCError as e:
-            logging.error(f"Exception Tx::from_raw_tx_data  {raw_tx} : {e}")
+            logger.error(f"Exception Tx::from_raw_tx_data  {raw_tx} : {e}")
             return None
 
         return cls(
@@ -177,6 +182,7 @@ class Tx:
         total_input = 0
         for vin in self.vin:
             input_tx = Tx.from_tx_id(vin.tx_id, conn)
+            assert input_tx is not None
             total_input += input_tx.vout[vin.vout].value
         return total_input
 
@@ -248,9 +254,9 @@ class OrdinalTx(Tx):
                 content_hash=hashlib.md5(payload).hexdigest(),
                 payload=payload,
             )
-        except AssertionError as e:
-            logging.error(f"AssertionError {self.tx_id} : {e}")
+        except AssertionError:
+            # logger.error(f"AssertionError {self.tx_id} : {e}")
             return None
         except Exception as e:
-            logging.error(f"Exception {self.tx_id} : {e}")
+            logger.error(f"Exception {self.tx_id} : {e}")
             return None

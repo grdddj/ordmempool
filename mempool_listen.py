@@ -1,4 +1,3 @@
-import logging
 import sys
 from pathlib import Path
 from typing import Iterator
@@ -6,6 +5,7 @@ from typing import Iterator
 import zmq
 
 from common import InscriptionContent, OrdinalTx, rpc_connection
+from logger import get_logger
 
 HERE = Path(__file__).parent
 
@@ -19,12 +19,7 @@ zmq_socket.setsockopt(zmq.SUBSCRIBE, zmq_topic)
 conn = rpc_connection()
 
 log_file_path = HERE / "mempool_listen.log"
-logger = logging.getLogger(__file__)
-logger.setLevel(logging.INFO)
-log_handler = logging.FileHandler(log_file_path)
-log_formatter = logging.Formatter("%(asctime)s %(message)s")
-log_handler.setFormatter(log_formatter)
-logger.addHandler(log_handler)
+logger = get_logger(__file__, log_file_path)
 
 
 def yield_new_tx_ids() -> Iterator[str]:

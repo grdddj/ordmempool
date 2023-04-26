@@ -8,3 +8,4 @@ config.py
 restart*.sh
 status*.sh
 trial
+trial.py

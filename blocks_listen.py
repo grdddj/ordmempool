@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import time
 from pathlib import Path
 from typing import Iterator
@@ -8,10 +7,11 @@ from typing import Iterator
 import zmq
 
 from common import rpc_connection
+from logger import get_logger
 
 HERE = Path(__file__).parent
 
-PICS_DIR = HERE / "mempool_data" / "static" / "pictures"
+PICS_DIR = HERE / "static" / "pictures"
 
 zmq_context = zmq.Context()
 zmq_socket = zmq_context.socket(zmq.SUB)
@@ -21,12 +21,7 @@ zmq_socket.setsockopt(zmq.SUBSCRIBE, zmq_topic)
 conn = rpc_connection()
 
 log_file_path = HERE / "blocks_listen.log"
-logger = logging.getLogger(__file__)
-logger.setLevel(logging.INFO)
-log_handler = logging.FileHandler(log_file_path)
-log_formatter = logging.Formatter("%(asctime)s %(message)s")
-log_handler.setFormatter(log_formatter)
-logger.addHandler(log_handler)
+logger = get_logger(__file__, log_file_path)
 
 
 def yield_new_block_hashes() -> Iterator[str]:
@@ -68,10 +63,12 @@ def check_all_minted_ordinals_from_mempool():
                 all_mempool_ids = load_all_ords_in_mempool()
                 logger.info(f"Ords in mempool {len(all_mempool_ids)}")
                 deleted_ids = []
-                for mined_tx_id in conn.getblock(block_hash)["tx"]:
+                all_block_tx_ids = conn.getblock(block_hash)["tx"]
+                for mined_tx_id in all_block_tx_ids:
                     if mined_tx_id in all_mempool_ids:
                         delete_tx_id_from_mempool_dir(mined_tx_id)
                         deleted_ids.append(mined_tx_id)
+                logger.info(f"Block had {len(all_block_tx_ids)} txs")
                 logger.info(f"Deleted {len(deleted_ids)} ids: {deleted_ids}")
                 break
             except Exception as e:

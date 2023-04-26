@@ -1,7 +1,8 @@
 const WS_URL = 'wss://ordmempool.space/ws'
+// const WS_URL = `ws://${window.location.host}/ws`
 const WS_RECONNECT_INTERVAL_MS = 5000;
 
-function shortenString(str, length) {
+function shortenString(str, length) {const WS_URL = `wss://${window.location.host}/ws`
     const firstN = str.substring(0, length);
     const lastN = str.substring(str.length - length);
     return `${firstN}...${lastN}`;
@@ -48,13 +49,15 @@ function createCardFromResult(result) {
     const img = document.createElement('img');
     img.src = `/static/pictures/${imagePath}`;
 
-    let short_tx_id = '';
-    let mempool_space_link = '';
-    let ordinals_com_link = '';
+    let shortTxId = '';
+    let mempoolSpaceLink = '';
+    // let ordinalsComLink = '';
+    let ordSimilarityLink = '';
     if (data.tx_id) {
-        short_tx_id = shortenString(data.tx_id, 4);
-        mempool_space_link = `https://mempool.space/tx/${data.tx_id}`;
-        ordinals_com_link = `https://ordinals.com/inscription/${data.tx_id}i0`;
+        shortTxId = shortenString(data.tx_id, 4);
+        mempoolSpaceLink = `https://mempool.space/tx/${data.tx_id}`;
+        // ordinalsComLink = `https://ordinals.com/inscription/${data.tx_id}i0`;
+        ordSimilarityLink = `https://ordsimilarity.com?tx_id=${data.tx_id}`;
     }
 
     let feeRate = ''
@@ -73,13 +76,14 @@ function createCardFromResult(result) {
     const info = document.createElement('div');
     info.classList.add('image-info');
     info.innerHTML = `
-        <p><strong>TX ID:</strong> <a href="${mempool_space_link}" target="_blank">${short_tx_id}</a></p>
+        <p><strong>TX ID:</strong> <a href="${mempoolSpaceLink}" target="_blank">${shortTxId}</a></p>
         <p><strong>Time:</strong> ${publishedLocalTime}</p>
         <p><strong>Content Length:</strong> ${data.content_length}</p>
         <p><strong>Content type:</strong> ${data.content_type}</p>
         <p><strong>Fee rate:</strong> ${feeRate}</p>
-        <p><a href="${ordinals_com_link}" target="_blank">Future ordinals.com link</a></p>
+        <p><a href="${ordSimilarityLink}" target="_blank">OrdSimilarity link</a></p>
     `;
+    // <p><a href="${ordinalsComLink}" target="_blank">Future ordinals.com link</a></p>
 
     card.appendChild(img);
     card.appendChild(info);

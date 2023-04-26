@@ -2,9 +2,8 @@ import atexit
 from pathlib import Path
 
 import paramiko
-from scp import SCPClient
-
 from config import Config
+from scp import SCPClient
 
 private_key = paramiko.RSAKey.from_private_key_file(Config.private_key_file)
 ssh = paramiko.SSHClient()
