@@ -126,6 +126,8 @@ function setupWebSocket() {
         } else {
             console.error('Unknown WebSocket message type:', results.type);
         }
+        const size = results.size;
+        updateMempoolSize(size);
     });
 
     ws.addEventListener('error', (event) => {
