@@ -3,6 +3,7 @@ import sys
 import threading
 import time
 from decimal import Decimal
+from http.client import CannotSendRequest
 from pathlib import Path
 
 from common import InscriptionContent, OrdinalTx, RawProxy, rpc_connection
@@ -24,41 +25,64 @@ logger = get_logger(__file__, log_file_path)
 
 data_dir = HERE / "static" / "pictures"
 
+ordinals_processed = 0
+
+conn = rpc_connection()
+
 
 def main_listening():
-    conn = rpc_connection()
+    global conn
     for index, tx in enumerate(yield_new_txs()):
         if index % 100 == 0:
             logger.info(f"index - {index} - {tx.tx_id}")
-        inscription = tx.get_inscription(conn)
+        exception_there = False
+        while True:
+            try:
+                inscription = tx.get_inscription(conn)
+                if exception_there:
+                    logger.info(f"Recovered from error {tx.tx_id}")
+                break
+            except CannotSendRequest:
+                logger.error("Cannot send request")
+            except Exception as e:
+                logger.exception(f"Exception main_listening {e}")
+            conn = rpc_connection()
+            exception_there = True
+            time.sleep(1)
         if inscription is None:
             continue
+        global ordinals_processed
+        ordinals_processed += 1
+        if ordinals_processed % 50 == 0:
+            logger.info(f"Ordinal processed - {ordinals_processed} - {tx.tx_id}")
         if not inscription.content_type.startswith("image"):
             continue
         processing_thread = threading.Thread(
-            target=do_process_ordinal, args=(inscription, tx, conn)
+            target=do_process_ordinal, args=(inscription, tx)
         )
         logger.info(f"Starting processing_thread for {tx.tx_id}")
         processing_thread.start()
 
 
-def do_process_ordinal(
-    inscription: InscriptionContent, tx: OrdinalTx, conn: RawProxy
-) -> None:
+def do_process_ordinal(inscription: InscriptionContent, tx: OrdinalTx) -> None:
+    global conn
+    exception_there = False
     while True:
         try:
-            process_ordinal(inscription, tx, conn)
+            process_image_ordinal(inscription, tx, conn)
+            if exception_there:
+                logger.info(f"Recovered from error {tx.tx_id}")
             break
+        except CannotSendRequest:
+            logger.error("Cannot send request")
         except Exception as e:
-            if "Broken pipe" in str(e):
-                logger.error("Broken pipe")
-            else:
-                logger.exception(f"Exception main_listening {e}")
-            conn = rpc_connection()
-            time.sleep(0.5)
+            logger.exception(f"Exception main_listening {e}")
+        conn = rpc_connection()
+        exception_there = True
+        time.sleep(1)
 
 
-def process_ordinal(
+def process_image_ordinal(
     inscription: InscriptionContent, tx: OrdinalTx, conn: RawProxy
 ) -> None:
     logger.info(f"tx - {tx}")
@@ -97,4 +121,6 @@ if __name__ == "__main__":
         except Exception as e:
             logger.exception(f"Exception {e}")
             logger.info("Recovering from error...")
+            conn = rpc_connection()
+            time.sleep(1)
             continue
